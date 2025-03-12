@@ -1,0 +1,93 @@
+import { createUserProfile, createRestaurantProfile } from '../lib/firebase/firebaseUtils.js';
+import { RestaurantProfile } from '../lib/types/auth.js';
+
+const sampleRestaurants: Partial<RestaurantProfile>[] = [
+  {
+    uid: 'rest1',
+    email: 'italiano@example.com',
+    displayName: 'La Bella Italia',
+    restaurantName: 'La Bella Italia',
+    description: 'Auténtica cocina italiana con pasta fresca hecha a diario y pizzas horneadas en horno de leña.',
+    address: 'Calle Principal 123, Ciudad',
+    phone: '+1234567890',
+    website: 'www.labellaitalia.com',
+    cuisine: ['Italian'],
+    openingHours: {
+      monday: { open: '12:00', close: '22:00' },
+      tuesday: { open: '12:00', close: '22:00' },
+      wednesday: { open: '12:00', close: '22:00' },
+      thursday: { open: '12:00', close: '22:00' },
+      friday: { open: '12:00', close: '23:00' },
+      saturday: { open: '12:00', close: '23:00' },
+      sunday: { open: '12:00', close: '21:00' }
+    },
+    features: ['Terraza', 'Wifi', 'Parking'],
+    isActive: true,
+    role: 'restaurant'
+  },
+  {
+    uid: 'rest2',
+    email: 'sushi@example.com',
+    displayName: 'Sakura Sushi',
+    restaurantName: 'Sakura Sushi',
+    description: 'El mejor sushi de la ciudad con pescado fresco importado diariamente de Japón.',
+    address: 'Avenida Marina 456, Ciudad',
+    phone: '+1234567891',
+    website: 'www.sakurasushi.com',
+    cuisine: ['Japanese'],
+    openingHours: {
+      monday: { open: '13:00', close: '22:30' },
+      tuesday: { open: '13:00', close: '22:30' },
+      wednesday: { open: '13:00', close: '22:30' },
+      thursday: { open: '13:00', close: '22:30' },
+      friday: { open: '13:00', close: '23:30' },
+      saturday: { open: '13:00', close: '23:30' },
+      sunday: { open: '13:00', close: '22:00' }
+    },
+    features: ['Barra de Sushi', 'Sake Bar', 'Reservas'],
+    isActive: true,
+    role: 'restaurant'
+  },
+  {
+    uid: 'rest3',
+    email: 'taco@example.com',
+    displayName: 'Taco Loco',
+    restaurantName: 'Taco Loco',
+    description: 'Auténtica comida mexicana callejera en un ambiente casual y festivo.',
+    address: 'Plaza Central 789, Ciudad',
+    phone: '+1234567892',
+    website: 'www.tacoloco.com',
+    cuisine: ['Mexican'],
+    openingHours: {
+      monday: { open: '11:00', close: '23:00' },
+      tuesday: { open: '11:00', close: '23:00' },
+      wednesday: { open: '11:00', close: '23:00' },
+      thursday: { open: '11:00', close: '23:00' },
+      friday: { open: '11:00', close: '02:00' },
+      saturday: { open: '11:00', close: '02:00' },
+      sunday: { open: '11:00', close: '23:00' }
+    },
+    features: ['Música en vivo', 'Bar', 'Delivery'],
+    isActive: true,
+    role: 'restaurant'
+  }
+];
+
+export async function seedRestaurants() {
+  try {
+    for (const restaurant of sampleRestaurants) {
+      await createUserProfile(restaurant.uid!, {
+        uid: restaurant.uid!,
+        email: restaurant.email!,
+        displayName: restaurant.displayName!,
+        role: 'restaurant'
+      });
+      
+      await createRestaurantProfile(restaurant.uid!, restaurant);
+      console.log(`Created restaurant: ${restaurant.restaurantName}`);
+    }
+    console.log('All restaurants created successfully!');
+  } catch (error) {
+    console.error('Error seeding restaurants:', error);
+  }
+} 
