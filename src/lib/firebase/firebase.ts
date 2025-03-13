@@ -1,21 +1,39 @@
-import { initializeApp, getApps } from "firebase/app";
+'use client';
+
+import { initializeApp, getApps, FirebaseApp } from "firebase/app";
 import { getAuth } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
-import { getStorage } from "firebase/storage";
+import { getAnalytics, isSupported, Analytics } from "firebase/analytics";
 
 const firebaseConfig = {
-  apiKey: process.env.NEXT_PUBLIC_FIREBASE_API_KEY,
-  authDomain: process.env.NEXT_PUBLIC_FIREBASE_AUTH_DOMAIN,
-  projectId: process.env.NEXT_PUBLIC_FIREBASE_PROJECT_ID,
-  storageBucket: process.env.NEXT_PUBLIC_FIREBASE_STORAGE_BUCKET,
-  messagingSenderId: process.env.NEXT_PUBLIC_FIREBASE_MESSAGING_SENDER_ID,
-  appId: process.env.NEXT_PUBLIC_FIREBASE_APP_ID,
+  apiKey: "AIzaSyCGYRI4jdKhq22g_cpCeeSc2y6n_z663w8",
+  authDomain: "see-eat-53aea.firebaseapp.com",
+  projectId: "see-eat-53aea",
+  storageBucket: "see-eat-53aea.firebasestorage.app",
+  messagingSenderId: "735037793209",
+  appId: "1:735037793209:web:fd8283bfc49ac4516c4c68",
+  measurementId: "G-HM8PYJZMJ5"
 };
 
 // Initialize Firebase
-const app = getApps().length === 0 ? initializeApp(firebaseConfig) : getApps()[0];
-const auth = getAuth(app);
-const db = getFirestore(app);
-const storage = getStorage(app);
+let app: FirebaseApp;
 
-export { app, auth, db, storage };
+// Check if we're in a browser environment
+const isBrowser = typeof window !== 'undefined';
+
+if (getApps().length === 0) {
+  app = initializeApp(firebaseConfig);
+} else {
+  app = getApps()[0];
+}
+
+const auth = isBrowser ? getAuth(app) : getAuth(app);
+const db = getFirestore(app);
+
+// Initialize Analytics and export it if it's supported
+let analytics: Analytics | null = null;
+if (isBrowser) {
+  isSupported().then(yes => yes && (analytics = getAnalytics(app)));
+}
+
+export { app, auth, db, analytics };

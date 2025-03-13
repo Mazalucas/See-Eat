@@ -11,9 +11,28 @@ import {
   deleteDoc,
   serverTimestamp,
   setDoc,
+  writeBatch,
+  DocumentData,
+  Timestamp,
 } from 'firebase/firestore';
 import { db } from './firebase';
-import { MenuItem, MenuCategory, RestaurantMenu } from '../types/menu';
+import { Menu, MenuCategory, MenuItem, RestaurantMenu, MenuStatus } from '../types/menu';
+
+const MENUS_COLLECTION = 'menus';
+
+interface FirestoreMenu extends Omit<Menu, 'lastUpdated'> {
+  lastUpdated: Timestamp;
+}
+
+const convertToMenu = (doc: FirestoreMenu & { id: string }): Menu => ({
+  ...doc,
+  lastUpdated: doc.lastUpdated.toDate().toISOString(),
+});
+
+const convertToFirestoreMenu = (menu: Menu): Omit<FirestoreMenu, 'id'> => ({
+  ...menu,
+  lastUpdated: Timestamp.fromDate(new Date(menu.lastUpdated)),
+});
 
 // Get all menu items for a restaurant
 export async function getRestaurantMenu(restaurantId: string): Promise<MenuItem[]> {
@@ -183,79 +202,174 @@ export async function searchMenuItems(
   }
 }
 
-export async function createMenu(restaurantId: string, slug: string): Promise<void> {
-  const menuRef = doc(db, 'menus', slug);
-  const menu: RestaurantMenu = {
-    restaurantId,
-    slug,
-    categories: [],
-    items: [],
-    settings: {
-      showPrices: true,
-      showImages: true,
-      allowOrdering: false
-    },
-    updatedAt: new Date()
-  };
-  
-  await setDoc(menuRef, menu);
+export async function getMenu(restaurantId: string): Promise<Menu | null> {
+  try {
+    const menuRef = doc(db, 'menus', restaurantId);
+    const menuDoc = await getDoc(menuRef);
+
+    if (!menuDoc.exists()) {
+      return null;
+    }
+
+    const menuData = menuDoc.data();
+    if (!menuData) {
+      return null;
+    }
+
+    // Validate required fields
+    if (!menuData.restaurantId || !Array.isArray(menuData.categories) || !Array.isArray(menuData.items)) {
+      console.error('Invalid menu data structure');
+      return null;
+    }
+
+    // Convert Firestore Timestamp to Date
+    const lastUpdated = menuData.lastUpdated instanceof Timestamp 
+      ? menuData.lastUpdated.toDate() 
+      : new Date(menuData.lastUpdated);
+
+    // Type assertion after validation
+    const menu: Menu = {
+      restaurantId: menuData.restaurantId,
+      categories: menuData.categories as MenuCategory[],
+      items: menuData.items as MenuItem[],
+      lastUpdated,
+    };
+
+    return menu;
+  } catch (error) {
+    console.error('Error getting menu:', error);
+    return null;
+  }
+}
+
+export async function getMenuByRestaurantId(restaurantId: string): Promise<Menu | null> {
+  try {
+    const menusRef = collection(db, MENUS_COLLECTION);
+    const q = query(menusRef, where('restaurantId', '==', restaurantId));
+    const querySnapshot = await getDocs(q);
+
+    if (querySnapshot.empty) {
+      return null;
+    }
+
+    const doc = querySnapshot.docs[0];
+    const data = doc.data();
+    return {
+      ...data,
+      id: doc.id,
+      lastUpdated: data.lastUpdated.toDate().toISOString(),
+    } as Menu;
+  } catch (error) {
+    console.error('Error getting menu:', error);
+    throw new Error('Failed to get menu');
+  }
+}
+
+export async function createMenu(menu: Omit<Menu, 'id'>): Promise<Menu> {
+  try {
+    const menusRef = collection(db, MENUS_COLLECTION);
+    const menuData = {
+      ...menu,
+      lastUpdated: serverTimestamp(),
+    };
+    const docRef = await addDoc(menusRef, menuData);
+    const newDoc = await getDoc(docRef);
+    
+    if (!newDoc.exists()) {
+      throw new Error('Failed to create menu');
+    }
+
+    const data = newDoc.data();
+    return {
+      ...data,
+      id: newDoc.id,
+      lastUpdated: data?.lastUpdated.toDate().toISOString(),
+    } as Menu;
+  } catch (error) {
+    console.error('Error creating menu:', error);
+    throw new Error('Failed to create menu');
+  }
+}
+
+export async function getMenuById(id: string): Promise<RestaurantMenu | null> {
+  try {
+    const menuDoc = await getDoc(doc(db, 'menus', id));
+    if (!menuDoc.exists()) {
+      return null;
+    }
+
+    const data = menuDoc.data();
+    return {
+      ...data,
+      id: menuDoc.id,
+      createdAt: data.createdAt?.toDate() || new Date(),
+      updatedAt: data.updatedAt?.toDate() || new Date(),
+    } as RestaurantMenu;
+  } catch (error) {
+    console.error('Error getting menu by ID:', error);
+    return null;
+  }
 }
 
 export async function getMenuBySlug(slug: string): Promise<RestaurantMenu | null> {
-  const menuRef = doc(db, 'menus', slug);
-  const menuSnap = await getDoc(menuRef);
-  
-  if (!menuSnap.exists()) {
+  try {
+    const menusQuery = query(
+      collection(db, 'menus'),
+      where('slug', '==', slug)
+    );
+    
+    const querySnapshot = await getDocs(menusQuery);
+    if (querySnapshot.empty) {
+      return null;
+    }
+
+    const menuDoc = querySnapshot.docs[0];
+    const data = menuDoc.data();
+    return {
+      ...data,
+      id: menuDoc.id,
+      createdAt: data.createdAt?.toDate() || new Date(),
+      updatedAt: data.updatedAt?.toDate() || new Date(),
+    } as RestaurantMenu;
+  } catch (error) {
+    console.error('Error getting menu by slug:', error);
     return null;
   }
-  
-  return {
-    ...menuSnap.data(),
-    updatedAt: menuSnap.data().updatedAt.toDate()
-  } as RestaurantMenu;
 }
 
-export async function getMenuByRestaurantId(restaurantId: string): Promise<RestaurantMenu | null> {
-  const menusRef = collection(db, 'menus');
-  const q = query(menusRef, where('restaurantId', '==', restaurantId));
-  const querySnapshot = await getDocs(q);
-  
-  if (querySnapshot.empty) {
-    return null;
+export async function updateMenuCategories(restaurantId: string, categories: MenuCategory[]): Promise<boolean> {
+  try {
+    const menuRef = doc(db, 'menus', restaurantId);
+    const updateData = {
+      categories,
+      lastUpdated: new Date(),
+    };
+    await updateDoc(menuRef, updateData);
+    return true;
+  } catch (error) {
+    console.error('Error updating menu categories:', error);
+    return false;
   }
-  
-  const menuDoc = querySnapshot.docs[0];
-  return {
-    ...menuDoc.data(),
-    updatedAt: menuDoc.data().updatedAt.toDate()
-  } as RestaurantMenu;
 }
 
-export async function updateMenuCategories(
-  slug: string,
-  categories: MenuCategory[]
-): Promise<void> {
-  const menuRef = doc(db, 'menus', slug);
-  await updateDoc(menuRef, {
-    categories,
-    updatedAt: new Date()
-  });
-}
-
-export async function updateMenuItems(
-  slug: string,
-  items: MenuItem[]
-): Promise<void> {
-  const menuRef = doc(db, 'menus', slug);
-  await updateDoc(menuRef, {
-    items,
-    updatedAt: new Date()
-  });
+export async function updateMenuItems(restaurantId: string, items: MenuItem[]): Promise<boolean> {
+  try {
+    const menuRef = doc(db, 'menus', restaurantId);
+    const updateData = {
+      items,
+      lastUpdated: new Date(),
+    };
+    await updateDoc(menuRef, updateData);
+    return true;
+  } catch (error) {
+    console.error('Error updating menu items:', error);
+    return false;
+  }
 }
 
 export async function updateMenuSettings(
   slug: string,
-  settings: RestaurantMenu['settings']
+  settings: Menu['settings']
 ): Promise<void> {
   const menuRef = doc(db, 'menus', slug);
   await updateDoc(menuRef, {
@@ -266,11 +380,97 @@ export async function updateMenuSettings(
 
 export async function updateMenuTheme(
   slug: string,
-  theme: RestaurantMenu['theme']
+  theme: Menu['theme']
 ): Promise<void> {
   const menuRef = doc(db, 'menus', slug);
   await updateDoc(menuRef, {
     theme,
     updatedAt: new Date()
   });
+}
+
+export async function updateMenu(menu: Menu): Promise<Menu> {
+  try {
+    const menuRef = doc(db, MENUS_COLLECTION, menu.id);
+    const menuData = {
+      ...menu,
+      lastUpdated: serverTimestamp(),
+    };
+    await updateDoc(menuRef, menuData);
+    
+    const updatedDoc = await getDoc(menuRef);
+    if (!updatedDoc.exists()) {
+      throw new Error('Menu not found');
+    }
+
+    const data = updatedDoc.data();
+    return {
+      ...data,
+      id: updatedDoc.id,
+      lastUpdated: data?.lastUpdated.toDate().toISOString(),
+    } as Menu;
+  } catch (error) {
+    console.error('Error updating menu:', error);
+    throw new Error('Failed to update menu');
+  }
+}
+
+export async function deleteMenu(menuId: string): Promise<void> {
+  try {
+    const menuRef = doc(db, MENUS_COLLECTION, menuId);
+    await deleteDoc(menuRef);
+  } catch (error) {
+    console.error('Error deleting menu:', error);
+    throw new Error('Failed to delete menu');
+  }
+}
+
+export async function publishMenu(menuId: string): Promise<Menu> {
+  try {
+    const menuRef = doc(db, MENUS_COLLECTION, menuId);
+    await updateDoc(menuRef, {
+      status: 'published' as MenuStatus,
+      lastUpdated: serverTimestamp(),
+    });
+
+    const updatedDoc = await getDoc(menuRef);
+    if (!updatedDoc.exists()) {
+      throw new Error('Menu not found');
+    }
+
+    const data = updatedDoc.data();
+    return {
+      ...data,
+      id: updatedDoc.id,
+      lastUpdated: data?.lastUpdated.toDate().toISOString(),
+    } as Menu;
+  } catch (error) {
+    console.error('Error publishing menu:', error);
+    throw new Error('Failed to publish menu');
+  }
+}
+
+export async function archiveMenu(menuId: string): Promise<Menu> {
+  try {
+    const menuRef = doc(db, MENUS_COLLECTION, menuId);
+    await updateDoc(menuRef, {
+      status: 'archived' as MenuStatus,
+      lastUpdated: serverTimestamp(),
+    });
+
+    const updatedDoc = await getDoc(menuRef);
+    if (!updatedDoc.exists()) {
+      throw new Error('Menu not found');
+    }
+
+    const data = updatedDoc.data();
+    return {
+      ...data,
+      id: updatedDoc.id,
+      lastUpdated: data?.lastUpdated.toDate().toISOString(),
+    } as Menu;
+  } catch (error) {
+    console.error('Error archiving menu:', error);
+    throw new Error('Failed to archive menu');
+  }
 } 

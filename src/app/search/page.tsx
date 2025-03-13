@@ -1,13 +1,13 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useSearchParams, useRouter } from 'next/navigation';
 import { RestaurantProfile } from '@/lib/types/auth';
 import { collection, getDocs, query, where, orderBy } from 'firebase/firestore';
 import { db } from '@/lib/firebase/firebase';
 import Image from 'next/image';
 import Link from 'next/link';
-import { FaStar, FaFilter, FaUtensils, FaClock } from 'react-icons/fa';
+import { FaStar, FaFilter, FaUtensils, FaClock, FaArrowLeft } from 'react-icons/fa';
 
 const CUISINES = [
   'Italian',
@@ -22,6 +22,7 @@ const CUISINES = [
 
 export default function SearchPage() {
   const searchParams = useSearchParams();
+  const router = useRouter();
   const initialCuisine = searchParams.get('cuisine') || '';
 
   const [restaurants, setRestaurants] = useState<RestaurantProfile[]>([]);
@@ -37,7 +38,8 @@ export default function SearchPage() {
     const fetchRestaurants = async () => {
       try {
         let restaurantsQuery = query(
-          collection(db, 'restaurants'),
+          collection(db, 'users'),
+          where('role', '==', 'restaurant'),
           where('isActive', '==', true)
         );
 
@@ -49,9 +51,12 @@ export default function SearchPage() {
         }
 
         const snapshot = await getDocs(restaurantsQuery);
-        let restaurants = snapshot.docs.map(
-          (doc) => ({ ...doc.data(), uid: doc.id } as RestaurantProfile)
-        );
+        let restaurants = snapshot.docs.map(doc => ({
+          ...doc.data(),
+          uid: doc.id,
+          createdAt: doc.data().createdAt?.toDate(),
+          updatedAt: doc.data().updatedAt?.toDate(),
+        })) as RestaurantProfile[];
 
         // Apply client-side filters
         if (filters.searchTerm) {
@@ -69,7 +74,7 @@ export default function SearchPage() {
           case 'newest':
             restaurants.sort(
               (a, b) =>
-                b.createdAt.getTime() - a.createdAt.getTime()
+                (b.createdAt?.getTime() || 0) - (a.createdAt?.getTime() || 0)
             );
             break;
           case 'name':
@@ -94,6 +99,15 @@ export default function SearchPage() {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Navigation */}
+      <button
+        onClick={() => router.back()}
+        className="flex items-center text-gray-600 hover:text-gray-900 mb-6"
+      >
+        <FaArrowLeft className="w-4 h-4 mr-2" />
+        Back
+      </button>
+
       {/* Search Header */}
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-900 mb-4">
@@ -108,7 +122,7 @@ export default function SearchPage() {
                 setFilters({ ...filters, searchTerm: e.target.value })
               }
               placeholder="Search by name, description, or location..."
-              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900 placeholder-gray-500"
             />
           </div>
           <div className="flex gap-4">
@@ -117,7 +131,7 @@ export default function SearchPage() {
               onChange={(e) =>
                 setFilters({ ...filters, cuisine: e.target.value })
               }
-              className="px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
             >
               <option value="">All Cuisines</option>
               {CUISINES.map((cuisine) => (
@@ -129,7 +143,7 @@ export default function SearchPage() {
             <select
               value={filters.sortBy}
               onChange={(e) => setFilters({ ...filters, sortBy: e.target.value })}
-              className="px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="px-4 py-2 rounded-lg border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-transparent text-gray-900"
             >
               <option value="newest">Newest First</option>
               <option value="name">Name A-Z</option>

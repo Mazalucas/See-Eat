@@ -1,0 +1,42 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Función auxiliar para verificar si el usuario está autenticado
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    // Función auxiliar para verificar si el usuario es dueño del documento
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    // Reglas para la colección de borradores de restaurantes
+    match /restaurantDrafts/{userId} {
+      allow read, write: if isAuthenticated();
+    }
+
+    // Reglas para la colección de restaurantes
+    match /restaurants/{restaurantId} {
+      allow read: if true;
+      allow list: if true; // Permitir búsquedas
+      allow create: if isAuthenticated();
+      allow update, delete: if isOwner(resource.data.uid);
+    }
+
+    // Reglas para la colección de usuarios
+    match /users/{userId} {
+      allow read: if true;
+      allow write: if isOwner(userId);
+    }
+
+    // Reglas para la colección de reseñas
+    match /reviews/{reviewId} {
+      allow read: if true;
+      allow list: if true; // Permitir listado de reseñas
+      allow create: if isAuthenticated();
+      allow update, delete: if isOwner(resource.data.userId);
+    }
+  }
+} 

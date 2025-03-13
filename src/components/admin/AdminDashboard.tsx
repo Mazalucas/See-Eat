@@ -152,7 +152,7 @@ export default function AdminDashboard({ adminId }: AdminDashboardProps) {
                       <div className="flex-shrink-0">
                         <img
                           className="h-12 w-12 rounded-full"
-                          src={user.photoURL || '/images/default-avatar.png'}
+                          src={user.photoURL || '/images/default-avatar.jpg'}
                           alt={user.displayName || 'User'}
                         />
                       </div>

@@ -1,13 +1,12 @@
-import type { Metadata } from 'next';
-import { Inter } from 'next/font/google';
 import './globals.css';
-import { AuthProvider } from '@/lib/contexts/AuthContext';
+import { Inter } from 'next/font/google';
+import ClientLayout from '@/app/components/layout/ClientLayout';
 
 const inter = Inter({ subsets: ['latin'] });
 
-export const metadata: Metadata = {
+export const metadata = {
   title: 'See-Eat',
-  description: 'Discover and explore local restaurants',
+  description: 'Descubre y comparte experiencias gastronómicas',
 };
 
 export default function RootLayout({
@@ -16,11 +15,11 @@ export default function RootLayout({
   children: React.ReactNode;
 }) {
   return (
-    <html lang="en">
+    <html lang="es">
       <body className={inter.className}>
-        <AuthProvider>
+        <ClientLayout>
           {children}
-        </AuthProvider>
+        </ClientLayout>
       </body>
     </html>
   );

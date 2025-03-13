@@ -1,38 +1,86 @@
-export type UserRole = 'admin' | 'restaurant' | 'client';
+import { MenuItem, MenuCategory } from './menu';
 
-export interface UserProfile {
+export type UserRole = 'customer' | 'restaurant' | 'admin';
+
+export type DietaryTag = 
+  | 'Vegetarian'
+  | 'Vegan'
+  | 'Gluten-Free'
+  | 'Dairy-Free'
+  | 'Nut-Free'
+  | 'Halal'
+  | 'Kosher';
+
+export interface BaseUserProfile {
   uid: string;
   email: string;
   displayName: string;
   photoURL?: string;
-  role: UserRole;
-  createdAt: Date;
-  updatedAt: Date;
+  createdAt?: Date;
+  updatedAt?: Date;
 }
 
-export interface RestaurantProfile extends UserProfile {
+export interface CustomerProfile extends BaseUserProfile {
+  role: 'customer';
+  dietaryPreferences?: DietaryTag[];
+  favoriteRestaurants?: string[];
+  favoriteItems?: string[];
+  reviews?: string[];
+}
+
+export interface Address {
+  street: string;
+  city: string;
+  state: string;
+  postalCode: string;
+  country: string;
+  coordinates?: {
+    lat: number;
+    lng: number;
+  };
+}
+
+export interface RestaurantProfile extends BaseUserProfile {
   role: 'restaurant';
   restaurantName: string;
   description: string;
-  address: string;
+  cuisine: string[];
+  address: Address;
   phone: string;
   website?: string;
-  cuisine: string[];
-  openingHours: Record<string, { open: string; close: string }>;
+  schedule: {
+    [key: string]: {
+      open: string;
+      close: string;
+      closed: boolean;
+    };
+  };
+  status: 'pending' | 'active' | 'suspended';
+  dietaryOptions?: DietaryTag[];
   features?: string[];
-  isActive: boolean;
+  ratings?: {
+    average: number;
+    count: number;
+  };
+  menuCategories?: MenuCategory[];
+  menuItems?: MenuItem[];
+  reviews?: string[];
 }
 
-export interface ClientProfile extends UserProfile {
-  role: 'client';
-  favorites?: string[]; // Restaurant IDs
-  dietary?: string[];
-  allergies?: string[];
-}
-
-export interface AdminProfile extends UserProfile {
+export interface AdminProfile extends BaseUserProfile {
   role: 'admin';
-  permissions?: string[];
+  permissions: string[];
+}
+
+export type UserProfile = CustomerProfile | RestaurantProfile | AdminProfile;
+
+export interface OpeningHours {
+  open: string;
+  close: string;
+}
+
+export interface DailyHours {
+  [key: string]: OpeningHours;
 }
 
 export interface MenuItem {
@@ -58,11 +106,28 @@ export interface MenuItem {
 export interface Review {
   id: string;
   userId: string;
-  menuItemId: string;
   restaurantId: string;
+  restaurantName: string;
+  restaurantImage?: string;
   rating: number;
   comment: string;
   images?: string[];
+  likes: number;
   createdAt: Date;
   updatedAt: Date;
+}
+
+// Type guard para verificar si un perfil es de tipo CustomerProfile
+export function isCustomerProfile(profile: UserProfile): profile is CustomerProfile {
+  return profile.role === 'customer';
+}
+
+// Type guard para verificar si un perfil es de tipo RestaurantProfile
+export function isRestaurantProfile(profile: UserProfile): profile is RestaurantProfile {
+  return profile.role === 'restaurant';
+}
+
+// Type guard para verificar si un perfil es de tipo AdminProfile
+export function isAdminProfile(profile: UserProfile): profile is AdminProfile {
+  return profile.role === 'admin';
 } 

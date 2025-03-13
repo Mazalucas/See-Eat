@@ -1,5 +1,7 @@
-import { createUserProfile, createRestaurantProfile } from '../lib/firebase/firebaseUtils.js';
-import { RestaurantProfile } from '../lib/types/auth.js';
+import { createUserProfile } from '../lib/firebase/firebaseUtils.js';
+import { RestaurantProfile, DietaryTag } from '../lib/types/auth.js';
+import { doc, setDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '../lib/firebase/firebase.js';
 
 const sampleRestaurants: Partial<RestaurantProfile>[] = [
   {
@@ -22,6 +24,7 @@ const sampleRestaurants: Partial<RestaurantProfile>[] = [
       sunday: { open: '12:00', close: '21:00' }
     },
     features: ['Terraza', 'Wifi', 'Parking'],
+    dietaryOptions: ['Vegetarian', 'Gluten-Free', 'Lactose-Free'],
     isActive: true,
     role: 'restaurant'
   },
@@ -45,6 +48,7 @@ const sampleRestaurants: Partial<RestaurantProfile>[] = [
       sunday: { open: '13:00', close: '22:00' }
     },
     features: ['Barra de Sushi', 'Sake Bar', 'Reservas'],
+    dietaryOptions: ['Gluten-Free', 'Lactose-Free'],
     isActive: true,
     role: 'restaurant'
   },
@@ -68,6 +72,7 @@ const sampleRestaurants: Partial<RestaurantProfile>[] = [
       sunday: { open: '11:00', close: '23:00' }
     },
     features: ['Música en vivo', 'Bar', 'Delivery'],
+    dietaryOptions: ['Vegetarian', 'Vegan', 'Gluten-Free'],
     isActive: true,
     role: 'restaurant'
   }
@@ -76,6 +81,7 @@ const sampleRestaurants: Partial<RestaurantProfile>[] = [
 export async function seedRestaurants() {
   try {
     for (const restaurant of sampleRestaurants) {
+      // Create user profile in 'users' collection
       await createUserProfile(restaurant.uid!, {
         uid: restaurant.uid!,
         email: restaurant.email!,
@@ -83,11 +89,19 @@ export async function seedRestaurants() {
         role: 'restaurant'
       });
       
-      await createRestaurantProfile(restaurant.uid!, restaurant);
+      // Create restaurant profile in 'users' collection with all details
+      const userRef = doc(db, 'users', restaurant.uid!);
+      await setDoc(userRef, {
+        ...restaurant,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      }, { merge: true });
+
       console.log(`Created restaurant: ${restaurant.restaurantName}`);
     }
     console.log('All restaurants created successfully!');
   } catch (error) {
     console.error('Error seeding restaurants:', error);
+    throw error; // Re-throw to handle in the main script
   }
 } 

@@ -1,136 +1,140 @@
-import { createMenu, updateMenuCategories, updateMenuItems } from '../lib/firebase/menuUtils';
-import { MenuCategory, MenuItem } from '../lib/types/menu';
+import { doc, collection, setDoc, serverTimestamp } from 'firebase/firestore';
+import { db } from '../lib/firebase/firebase';
+import { MenuItem } from '../lib/types/auth';
 
-const sampleMenus = [
+const defaultImage = '/assets/images/defaults/default-review-image.jpg';
+
+const sampleMenus: Partial<MenuItem>[] = [
+  // Menú para La Bella Italia
   {
     restaurantId: 'rest1',
-    slug: 'la-bella-italia',
-    categories: [
-      { id: 'antipasti', name: 'Antipasti', order: 1 },
-      { id: 'pasta', name: 'Pasta Fresca', order: 2 },
-      { id: 'pizza', name: 'Pizza', order: 3 },
-      { id: 'dolci', name: 'Dolci', order: 4 }
-    ] as MenuCategory[],
-    items: [
-      {
-        id: 'bruschetta',
-        name: 'Bruschetta',
-        description: 'Toasted bread with fresh tomatoes, garlic, basil and olive oil',
-        price: 8.99,
-        categoryId: 'antipasti',
-        isAvailable: true,
-        order: 1
-      },
-      {
-        id: 'carbonara',
-        name: 'Spaghetti Carbonara',
-        description: 'Fresh pasta with eggs, pecorino cheese, guanciale and black pepper',
-        price: 16.99,
-        categoryId: 'pasta',
-        isAvailable: true,
-        order: 1
-      },
-      {
-        id: 'margherita',
-        name: 'Pizza Margherita',
-        description: 'Tomato sauce, mozzarella, fresh basil',
-        price: 14.99,
-        categoryId: 'pizza',
-        isAvailable: true,
-        order: 1
-      }
-    ] as MenuItem[]
+    name: 'Pasta Carbonara',
+    description: 'Pasta fresca con salsa cremosa de huevo, queso pecorino, panceta y pimienta negra',
+    price: 15.99,
+    category: 'Pasta',
+    tags: ['Popular', 'Clásico'],
+    dietaryInfo: ['Contiene gluten', 'Contiene lácteos'],
+    images: [
+      defaultImage,
+      defaultImage
+    ],
+    isAvailable: true,
+    ratings: {
+      average: 4.8,
+      count: 45
+    }
+  },
+  {
+    restaurantId: 'rest1',
+    name: 'Pizza Margherita',
+    description: 'Pizza tradicional con salsa de tomate, mozzarella fresca y albahaca',
+    price: 13.99,
+    category: 'Pizza',
+    tags: ['Vegetariano', 'Clásico'],
+    dietaryInfo: ['Contiene gluten', 'Contiene lácteos'],
+    images: [
+      defaultImage,
+      defaultImage
+    ],
+    isAvailable: true,
+    ratings: {
+      average: 4.5,
+      count: 38
+    }
+  },
+  // Menú para Sakura Sushi
+  {
+    restaurantId: 'rest2',
+    name: 'Dragon Roll',
+    description: 'Roll de tempura de langostino, aguacate y salsa de anguila',
+    price: 18.99,
+    category: 'Rolls Especiales',
+    tags: ['Popular', 'Picante'],
+    dietaryInfo: ['Contiene mariscos', 'Contiene gluten'],
+    images: [
+      defaultImage,
+      defaultImage
+    ],
+    isAvailable: true,
+    ratings: {
+      average: 4.9,
+      count: 62
+    }
   },
   {
     restaurantId: 'rest2',
-    slug: 'sakura-sushi',
-    categories: [
-      { id: 'nigiri', name: 'Nigiri', order: 1 },
-      { id: 'maki', name: 'Maki Rolls', order: 2 },
-      { id: 'special', name: 'Special Rolls', order: 3 },
-      { id: 'tempura', name: 'Tempura', order: 4 }
-    ] as MenuCategory[],
-    items: [
-      {
-        id: 'salmon-nigiri',
-        name: 'Salmon Nigiri',
-        description: 'Fresh salmon over seasoned rice',
-        price: 6.99,
-        categoryId: 'nigiri',
-        isAvailable: true,
-        order: 1
-      },
-      {
-        id: 'california',
-        name: 'California Roll',
-        description: 'Crab meat, avocado, cucumber',
-        price: 12.99,
-        categoryId: 'maki',
-        isAvailable: true,
-        order: 1
-      },
-      {
-        id: 'dragon',
-        name: 'Dragon Roll',
-        description: 'Eel, cucumber, topped with avocado',
-        price: 16.99,
-        categoryId: 'special',
-        isAvailable: true,
-        order: 1
-      }
-    ] as MenuItem[]
+    name: 'Nigiri Variado',
+    description: 'Selección de 8 piezas de nigiri con pescado fresco del día',
+    price: 24.99,
+    category: 'Nigiri',
+    tags: ['Fresco', 'Premium'],
+    dietaryInfo: ['Contiene pescado crudo'],
+    images: [
+      defaultImage,
+      defaultImage
+    ],
+    isAvailable: true,
+    ratings: {
+      average: 4.7,
+      count: 33
+    }
+  },
+  // Menú para Taco Loco
+  {
+    restaurantId: 'rest3',
+    name: 'Tacos al Pastor',
+    description: 'Tres tacos de cerdo marinado con piña, cebolla y cilantro',
+    price: 9.99,
+    category: 'Tacos',
+    tags: ['Popular', 'Picante'],
+    dietaryInfo: ['Contiene carne'],
+    images: [
+      defaultImage,
+      defaultImage
+    ],
+    isAvailable: true,
+    ratings: {
+      average: 4.6,
+      count: 85
+    }
   },
   {
     restaurantId: 'rest3',
-    slug: 'taco-loco',
-    categories: [
-      { id: 'tacos', name: 'Tacos', order: 1 },
-      { id: 'burritos', name: 'Burritos', order: 2 },
-      { id: 'quesadillas', name: 'Quesadillas', order: 3 },
-      { id: 'sides', name: 'Sides', order: 4 }
-    ] as MenuCategory[],
-    items: [
-      {
-        id: 'al-pastor',
-        name: 'Tacos Al Pastor',
-        description: 'Marinated pork with pineapple, onions and cilantro',
-        price: 3.99,
-        categoryId: 'tacos',
-        isAvailable: true,
-        order: 1
-      },
-      {
-        id: 'carne-asada',
-        name: 'Burrito Carne Asada',
-        description: 'Grilled steak with rice, beans, cheese and pico de gallo',
-        price: 11.99,
-        categoryId: 'burritos',
-        isAvailable: true,
-        order: 1
-      },
-      {
-        id: 'queso',
-        name: 'Quesadilla de Queso',
-        description: 'Melted cheese with your choice of meat',
-        price: 9.99,
-        categoryId: 'quesadillas',
-        isAvailable: true,
-        order: 1
-      }
-    ] as MenuItem[]
+    name: 'Guacamole Fresco',
+    description: 'Guacamole preparado al momento con totopos caseros',
+    price: 7.99,
+    category: 'Entradas',
+    tags: ['Vegetariano', 'Fresco'],
+    dietaryInfo: ['Vegano', 'Sin gluten'],
+    images: [
+      defaultImage,
+      defaultImage
+    ],
+    isAvailable: true,
+    ratings: {
+      average: 4.4,
+      count: 41
+    }
   }
 ];
 
 export async function seedMenus() {
   try {
-    for (const menu of sampleMenus) {
-      await createMenu(menu.restaurantId, menu.slug);
-      await updateMenuCategories(menu.slug, menu.categories);
-      await updateMenuItems(menu.slug, menu.items);
-      console.log(`Created menu for restaurant: ${menu.slug}`);
+    console.log('Creating menu items...');
+    for (const menuItem of sampleMenus) {
+      const menuRef = doc(collection(db, 'menuItems'));
+      await setDoc(menuRef, {
+        ...menuItem,
+        id: menuRef.id,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+
+      console.log(`Created menu item: ${menuItem.name}`);
     }
-    console.log('All menus created successfully!');
+    console.log('All menu items created successfully!');
   } catch (error) {
-    console.error('Error seeding menus:', error);
+    console.error('Error seeding menu data:', error);
+    throw error;
   }
 } 
